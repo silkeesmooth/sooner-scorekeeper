@@ -1,0 +1,62 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "sooner-scorekeeper",
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "scheduler": {
+    "tasks": {
+      "sync-schedule": {
+        "endpoint": "/internal/scheduler/sync-schedule",
+        "cron": "15 */3 * * *"
+      },
+      "watch-game": {
+        "endpoint": "/internal/scheduler/watch-game",
+        "cron": "*/2 * * * *"
+      },
+      "post-game-thread": {
+        "endpoint": "/internal/scheduler/post-game-thread"
+      }
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "OU Gameday: check schedule",
+        "description": "Re-check ESPN and show when the next game thread will post.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/sync"
+      },
+      {
+        "label": "OU Gameday: post TEST threads",
+        "description": "Posts unstickied [TEST] copies of the next game thread and last postgame thread so you can check formatting.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/test-post"
+      }
+    ]
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install",
+    "onAppUpgrade": "/internal/triggers/on-app-upgrade"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "permissions": {
+    "reddit": true,
+    "redis": true,
+    "http": {
+      "enable": true,
+      "domains": [
+        "site.api.espn.com"
+      ]
+    }
+  },
+  "dev": {
+    "subreddit": "sooner_scorekeepe_dev"
+  }
+}
