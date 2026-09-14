@@ -44,7 +44,7 @@ export function gameThreadTitle(game: Game): string {
   return `[${threadLabel(game)} Thread] ${teamWithRank(game.away)} ${separator(game)} ${teamWithRank(game.home)}`;
 }
 
-const linkOrTba = (url: string | undefined) => (url ? `[Link](${url})` : 'TBA');
+const linkOrTba = (url: string | undefined) => (url ? `[Link](${url})` : '**TBA**');
 
 /** "Watch live on **[FOX](url)** — November 29th, 2:30PM CT" */
 function watchLine(game: Game): string {
@@ -63,7 +63,7 @@ function bettingLine(game: Game): string | null {
 }
 
 export function gameThreadBody(game: Game, links: ThreadLinks): string {
-  const linksBlock = `**Live Chat:** ${linkOrTba(links.cfbGameThread)}  \n**Postgame Thread:** ${linkOrTba(links.postgameThread)}`;
+  const linksBlock = `Live Chat: ${linkOrTba(links.cfbGameThread)}  \nPostgame Thread: ${linkOrTba(links.postgameThread)}`;
   const line = bettingLine(game);
   return [
     linksBlock,
@@ -132,7 +132,7 @@ function finalScoreLine(game: Game): string {
 export function postgameBody(game: Game): string {
   return [
     scoreTable(game) ?? finalScoreLine(game),
-    `*Score by quarter via [ESPN](${game.espnUrl}).*`,
+    `*Box Score provided by [ESPN](${game.espnUrl}).*`,
     '*Please keep trash talk civil and report any comments that violate our rules.*',
     ...(ouWon(game) ? ['# Boomer!'] : []),
   ].join('\n\n');

@@ -68,7 +68,7 @@ test('game thread body: no heading, TBA links, hyperlinked watch, no matchup lin
   assert.equal(
     body,
     [
-      '**Live Chat:** TBA  \n**Postgame Thread:** TBA',
+      'Live Chat: **TBA**  \nPostgame Thread: **TBA**',
       '**Watch live on [FOX](https://www.espn.com/college-football/game/_/gameId/401856679)** — September 12th, 11:00AM CT',
       '**Line:** OU -5.5 | O/U 43.5',
       "# LET'S TALK FOOTBALL!",
@@ -81,9 +81,9 @@ test('game thread body: no heading, TBA links, hyperlinked watch, no matchup lin
 
 test('links fill in once known, replacing TBA', () => {
   const filled = gameThreadBody(lsu, { cfbGameThread: 'https://cfb', postgameThread: 'https://post' });
-  assert.match(filled, /\*\*Live Chat:\*\* \[Link\]\(https:\/\/cfb\)/);
-  assert.match(filled, /\*\*Postgame Thread:\*\* \[Link\]\(https:\/\/post\)/);
-  assert.doesNotMatch(filled, /:\*\* TBA/);
+  assert.match(filled, /Live Chat: \[Link\]\(https:\/\/cfb\)/);
+  assert.match(filled, /Postgame Thread: \[Link\]\(https:\/\/post\)/);
+  assert.doesNotMatch(filled, /\*\*TBA\*\*/);
 });
 
 test('no network falls back to a plain kickoff line', () => {
@@ -103,7 +103,7 @@ test('postgame body: score table, ESPN attribution, italic rules, Boomer heading
     body,
     [
       '| | 1 | 2 | 3 | 4 | Final |\n|:-|:-:|:-:|:-:|:-:|:-:|\n| LSU | 0 | 7 | 7 | 0 | **14** |\n| #8 Oklahoma | 7 | 3 | 0 | 7 | **17** |',
-      `*Score by quarter via [ESPN](${ESPN}).*`,
+      `*Box Score provided by [ESPN](${ESPN}).*`,
       '*Please keep trash talk civil and report any comments that violate our rules.*',
       '# Boomer!',
     ].join('\n\n'),
