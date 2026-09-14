@@ -3,7 +3,7 @@ import { serve } from '@hono/node-server';
 import { createServer, getServerPort } from '@devvit/web/server';
 import type { TaskRequest, TaskResponse } from '@devvit/web/server';
 import type { TriggerResponse, UiResponse } from '@devvit/web/shared';
-import { postGameThread, postTestThreads, syncSchedule, watchActiveGame } from './gameday.ts';
+import { postGameThread, syncSchedule, watchActiveGame } from './gameday.ts';
 
 const app = new Hono();
 
@@ -43,7 +43,6 @@ const toast = async (action: () => Promise<string>): Promise<UiResponse> => {
 };
 
 app.post('/internal/menu/sync', async (c) => c.json<UiResponse>(await toast(syncSchedule), 200));
-app.post('/internal/menu/test-post', async (c) => c.json<UiResponse>(await toast(postTestThreads), 200));
 
 app.onError((error, c) => {
   console.error(`${c.req.path} failed:`, error);

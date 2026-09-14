@@ -146,8 +146,8 @@ export async function watchActiveGame(): Promise<void> {
   if (live.completed) {
     await postPostgameThread(eventId, {
       ...game,
-      home: { ...game.home, score: live.home.score, winner: live.home.winner },
-      away: { ...game.away, score: live.away.score, winner: live.away.winner },
+      home: { ...game.home, score: live.home.score, winner: live.home.winner, linescores: live.home.linescores },
+      away: { ...game.away, score: live.away.score, winner: live.away.winner, linescores: live.away.linescores },
     });
   } else if (live.state === 'post' || sinceKickoff > GIVE_UP_AFTER) {
     // Postponed, canceled, or ESPN never marked it final.
@@ -235,25 +235,4 @@ async function stickyAndRemember(post: Post): Promise<void> {
     return;
   }
   await redis.set('stickied', JSON.stringify([...(await stickiedIds()), post.id]));
-}
-
-/** Posts unstickied, untracked [TEST] copies of both thread types so mods can check formatting. */
-export async function postTestThreads(): Promise<string> {
-  const games = await fetchSchedule();
-  const now = Date.now();
-  const upcoming = games.find((g) => !g.completed && g.timeValid && Date.parse(g.kickoff) > now);
-  const last = games.filter((g) => g.completed).at(-1);
-  const posted: string[] = [];
-  if (upcoming) {
-    const game = await withGameDetails(upcoming);
-    const title = `[TEST] ${gameThreadTitle(game)}`;
-    await markAsMod(await reddit.submitPost({ subredditName: subredditName(), title, text: gameThreadBody(game, {}) }));
-    posted.push(title);
-  }
-  if (last) {
-    const title = `[TEST] ${postgameTitle(last)}`;
-    await markAsMod(await reddit.submitPost({ subredditName: subredditName(), title, text: postgameBody(last) }));
-    posted.push(title);
-  }
-  return posted.length ? `Posted: ${posted.join(' | ')}` : 'No games found to test with.';
 }

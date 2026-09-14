@@ -11,10 +11,14 @@ export type Team = {
   record: string | null;
   score: number | null;
   winner: boolean | null;
+  /** Points in each period: [Q1, Q2, Q3, Q4, ...OT]. Empty before/at kickoff. */
+  linescores: number[];
 };
 
 export type Game = {
   id: string;
+  /** ESPN gamecast page, e.g. https://www.espn.com/college-football/game/_/gameId/401856679 */
+  espnUrl: string;
   kickoff: string;
   /** False while the kickoff time is still TBA. */
   timeValid: boolean;
@@ -61,6 +65,13 @@ function parseVenue(venue: Json): string | null {
   return city && state ? `${name}, ${city}, ${state}` : name;
 }
 
+function parseLinescores(linescores: Json): number[] {
+  if (!Array.isArray(linescores)) return [];
+  return linescores
+    .map((l) => Number(typeof l === 'object' ? (l.displayValue ?? l.value) : l))
+    .filter((n) => Number.isFinite(n));
+}
+
 function parseTeam(c: Json): Team {
   const rank = Number(c.curatedRank?.current ?? c.rank);
   const rawScore = typeof c.score === 'object' ? c.score?.displayValue : c.score;
@@ -72,6 +83,7 @@ function parseTeam(c: Json): Team {
     record: parseRecord(c.record ?? c.records),
     score: Number.isFinite(score) ? score : null,
     winner: typeof c.winner === 'boolean' ? c.winner : null,
+    linescores: parseLinescores(c.linescores),
   };
 }
 
@@ -91,8 +103,10 @@ export function parseGame(event: Json, comp: Json = event.competitions?.[0]): Ga
   const away = competitors.find((c) => c.homeAway === 'away');
   if (!home || !away) throw new Error(`ESPN event ${event.id} is missing a home or away team`);
   const status = comp.status?.type ?? {};
+  const id = String(event.id ?? comp.id);
   return {
-    id: String(event.id ?? comp.id),
+    id,
+    espnUrl: `https://www.espn.com/college-football/game/_/gameId/${id}`,
     kickoff: comp.date ?? event.date,
     timeValid: (comp.timeValid ?? event.timeValid ?? comp.dateValid) !== false,
     seasonType: Number(event.seasonType?.type ?? 2),

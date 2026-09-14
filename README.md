@@ -8,13 +8,13 @@ Sooner Scorekeeper is an unofficial fan app that runs Oklahoma Sooners football 
 
 ## What it does
 
-- **Game thread, 1 hour before kickoff:** the matchup with rankings, records, and venue, plus the TV network, kickoff time, and betting line.
+- **Game thread, 1 hour before kickoff:** the matchup and rankings in the title, plus the TV network (linked to ESPN's gamecast), kickoff time, and betting line.
 - **Live Chat link:** adds a link to r/CFB's game thread once r/CFB posts it.
-- **Postgame thread, a few minutes after the game ends:** the final score, with a "Boomer!" when OU wins.
+- **Postgame thread, a few minutes after the game ends:** a score-by-quarter table (via ESPN), with a "Boomer!" when OU wins.
 
 Both threads are stickied and marked as mod posts. Game information comes from ESPN. Rankings follow the AP poll until the College Football Playoff rankings are released.
 
-**For moderators:** there's nothing to set up after installing. The subreddit's mod menu has **OU Gameday: check schedule**, which shows when the next thread will post, and **OU Gameday: post TEST threads**, which posts formatting previews.
+**For moderators:** there's nothing to set up after installing. The subreddit's mod menu has **OU Gameday: check schedule**, which shows when the next thread will post.
 
 ## Terms of Use
 
