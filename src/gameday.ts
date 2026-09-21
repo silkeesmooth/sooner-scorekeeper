@@ -118,6 +118,7 @@ export async function postGameThread(eventId: string): Promise<void> {
   console.log(`Posted game thread ${post.id} for ${gameThreadTitle(game)}`);
 
   await markAsMod(post);
+  await applyFlair(post, 'Game Thread');
   await unstickyPrevious();
   await stickyAndRemember(post);
   await linkCfbThread(eventId, game);
@@ -195,6 +196,7 @@ async function postPostgameThread(eventId: string, game: Game): Promise<void> {
   console.log(`Posted postgame thread ${post.id}: ${postgameTitle(game)}`);
 
   await markAsMod(post);
+  await applyFlair(post, 'Postgame Thread');
   await stickyAndRemember(post);
   await refreshGameThread(eventId);
 }
@@ -218,6 +220,25 @@ async function markAsMod(post: Post): Promise<void> {
     await post.distinguish();
   } catch (error) {
     console.error(`Couldn't distinguish ${post.id}`, error);
+  }
+}
+
+/**
+ * Sets the post's flair to one of the subreddit's existing post-flair templates,
+ * matched by its text (e.g. "Game Thread"). Skips quietly if there's no such flair.
+ */
+async function applyFlair(post: Post, flairText: string): Promise<void> {
+  const subreddit = subredditName();
+  try {
+    const templates = await reddit.getPostFlairTemplates(subreddit);
+    const template = templates.find((t) => t.text.trim().toLowerCase() === flairText.toLowerCase());
+    if (!template) {
+      console.warn(`No "${flairText}" post flair in r/${subreddit}; leaving the post unflaired.`);
+      return;
+    }
+    await reddit.setPostFlair({ subredditName: subreddit, postId: post.id, flairTemplateId: template.id });
+  } catch (error) {
+    console.error(`Couldn't set "${flairText}" flair on ${post.id}`, error);
   }
 }
 
