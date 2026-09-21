@@ -1,6 +1,6 @@
 # Sooner Scorekeeper
 
-_Last updated: September 11, 2026_
+_Last updated: September 21, 2026_
 
 ## What it is
 
