@@ -1,4 +1,6 @@
 // All post titles and bodies live here — edit this file to change the wording.
+import { RichTextBuilder } from '@devvit/web/server';
+import { makeFormatting } from '@devvit/shared-types/richtext/elements.js';
 import type { Game, Team } from './espn.ts';
 
 const OU_TEAM_ID = '201';
@@ -97,45 +99,57 @@ function periodLabels(count: number): string[] {
   return Array.from({ length: count }, (_, i) => (i < 4 ? String(i + 1) : i === 4 ? 'OT' : `${i - 3}OT`));
 }
 
+const italic = (text: string) => ({ text, formatting: [makeFormatting({ italic: true, startIndex: 0, length: text.length })] });
+
 /**
- * Score-by-quarter table (away team first, matching the title), e.g.
+ * Builds the postgame body as richtext, NOT markdown. Reddit's markdown-to-richtext
+ * conversion in submitPost({ text }) rejects tables ("META_RTJSON_MALFORMED"), so the
+ * table is built with RichTextBuilder, which submitPost({ richtext }) accepts natively.
  *
- * | | 1 | 2 | 3 | 4 | Final |
- * |:-|:-:|:-:|:-:|:-:|:-:|
- * | Oklahoma | 0 | 0 | 7 | 3 | **10** |
- * | Michigan | 7 | 3 | 0 | 7 | **17** |
- *
- * Returns null when ESPN hasn't given per-quarter scores.
+ * Layout (away team first, matching the title):
+ *   | | 1 | 2 | 3 | 4 | Final |   <- score-by-quarter table
+ *   *Box Score provided by ESPN.*
+ *   *Please keep trash talk civil ...*
+ *   # Boomer!                       <- only when OU wins
  */
-function scoreTable(game: Game): string | null {
+export function postgameRichtext(game: Game): RichTextBuilder {
+  const builder = new RichTextBuilder();
   const periods = Math.max(game.away.linescores.length, game.home.linescores.length);
-  if (periods === 0) return null;
-  const labels = periodLabels(periods);
-  const row = (team: Team) => {
-    const cells = labels.map((_, i) => String(team.linescores[i] ?? ''));
-    return `| ${teamWithRank(team)} | ${cells.join(' | ')} | **${team.score ?? 0}** |`;
-  };
-  return [
-    `| | ${labels.join(' | ')} | Final |`,
-    `|:-|${labels.map(() => ':-:').join('|')}|:-:|`,
-    row(game.away),
-    row(game.home),
-  ].join('\n');
-}
 
-/** Fallback when there's no per-quarter data: "Final: Oklahoma 17, LSU 14". */
-function finalScoreLine(game: Game): string {
-  const [winner, loser] = winnerAndLoser(game);
-  return `**Final:** ${winner.name} ${winner.score ?? 0}, ${loser.name} ${loser.score ?? 0}`;
-}
+  if (periods > 0) {
+    const labels = periodLabels(periods);
+    builder.table((table) => {
+      table.headerCell({ columnAlignment: 'left' }, (c) => c.text({ text: '' }));
+      for (const label of labels) table.headerCell({ columnAlignment: 'center' }, (c) => c.text({ text: label }));
+      table.headerCell({ columnAlignment: 'center' }, (c) => c.text({ text: 'Final' }));
+      for (const team of [game.away, game.home]) {
+        table.row((r) => {
+          r.cell((c) => c.text({ text: teamWithRank(team) }));
+          for (let i = 0; i < labels.length; i++) r.cell((c) => c.text({ text: String(team.linescores[i] ?? '') }));
+          const final = String(team.score ?? 0);
+          r.cell((c) => c.text({ text: final, formatting: [makeFormatting({ bold: true, startIndex: 0, length: final.length })] }));
+        });
+      }
+    });
+  } else {
+    // Fallback when ESPN gave no per-quarter data.
+    const [winner, loser] = winnerAndLoser(game);
+    builder.paragraph((p) =>
+      p.text({ text: `Final: ${winner.name} ${winner.score ?? 0}, ${loser.name} ${loser.score ?? 0}` }),
+    );
+  }
 
-export function postgameBody(game: Game): string {
-  return [
-    scoreTable(game) ?? finalScoreLine(game),
-    `*Box Score provided by [ESPN](${game.espnUrl}).*`,
-    '*Please keep trash talk civil and report any comments that violate our rules.*',
-    ...(ouWon(game) ? ['# Boomer!'] : []),
-  ].join('\n\n');
+  builder.paragraph((p) => {
+    p.text(italic('Box Score provided by '));
+    p.link({ text: 'ESPN', url: game.espnUrl, formatting: [makeFormatting({ italic: true, startIndex: 0, length: 4 })] });
+    p.text(italic('.'));
+  });
+  builder.paragraph((p) =>
+    p.text(italic('Please keep trash talk civil and report any comments that violate our rules.')),
+  );
+  if (ouWon(game)) builder.heading({ level: 1 }, (h) => h.rawText('Boomer!'));
+
+  return builder;
 }
 
 /**

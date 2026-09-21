@@ -6,11 +6,27 @@ import {
   gameThreadBody,
   gameThreadTitle,
   isCfbOuGameThread,
-  postgameBody,
+  postgameRichtext,
   postgameTitle,
 } from './format.ts';
 
 const ESPN = 'https://www.espn.com/college-football/game/_/gameId/401752789';
+
+// Parse a built postgame into a shape that's easy to assert on.
+type PgNode = { e: string; l?: number; h?: { a?: string; c: { t?: string }[] }[]; c?: any };
+function parsePg(game: Game) {
+  const doc = JSON.parse(postgameRichtext(game).build()) as { document: PgNode[] };
+  const text = (cells: { t?: string }[]) => cells.map((x) => x.t ?? '').join('');
+  const table = doc.document.find((n) => n.e === 'table');
+  return {
+    types: doc.document.map((n) => n.e),
+    header: table ? table.h!.map((cell) => text(cell.c)) : null,
+    rows: table ? (table.c as { c: { t?: string }[] }[][]).map((row) => row.map((cell) => text(cell.c))) : null,
+    paragraphs: doc.document.filter((n) => n.e === 'par').map((n) => text(n.c)),
+    headings: doc.document.filter((n) => n.e === 'h').map((n) => text(n.c)),
+    raw: postgameRichtext(game).build(),
+  };
+}
 
 // 2025 Week 14 (OU 17, LSU 14), with per-quarter scores.
 const lsu: Game = {
@@ -97,18 +113,19 @@ test('kickoff times in Central, across daylight saving', () => {
   assert.equal(formatKickoff('2026-11-21T17:00Z'), 'November 21st, 11:00AM CT');
 });
 
-test('postgame body: score table, ESPN attribution, italic rules, Boomer heading', () => {
-  const body = postgameBody(lsu);
-  assert.equal(
-    body,
-    [
-      '| | 1 | 2 | 3 | 4 | Final |\n|:-|:-:|:-:|:-:|:-:|:-:|\n| LSU | 0 | 7 | 7 | 0 | **14** |\n| #8 Oklahoma | 7 | 3 | 0 | 7 | **17** |',
-      `*Box Score provided by [ESPN](${ESPN}).*`,
-      '*Please keep trash talk civil and report any comments that violate our rules.*',
-      '# Boomer!',
-    ].join('\n\n'),
-  );
-  assert.doesNotMatch(body, /# Postgame Thread/);
+test('postgame is valid richtext (not markdown text) with a real table', () => {
+  const pg = parsePg(lsu);
+  // A native richtext table, so submitPost({ richtext }) is accepted (markdown tables are rejected).
+  assert.deepEqual(pg.types, ['table', 'par', 'par', 'h']);
+  assert.deepEqual(pg.header, ['', '1', '2', '3', '4', 'Final']);
+  assert.deepEqual(pg.rows, [
+    ['LSU', '0', '7', '7', '0', '14'],
+    ['#8 Oklahoma', '7', '3', '0', '7', '17'],
+  ]);
+  assert.match(pg.paragraphs[0]!, /^Box Score provided by ESPN\.$/);
+  assert.match(pg.paragraphs[1]!, /trash talk civil/);
+  assert.deepEqual(pg.headings, ['Boomer!']);
+  assert.match(pg.raw, new RegExp(ESPN.replace(/[.]/g, '\\.'))); // ESPN link present
 });
 
 test('postgame when OU loses: loser-first title, no Boomer', () => {
@@ -118,7 +135,7 @@ test('postgame when OU loses: loser-first title, no Boomer', () => {
     away: { ...lsu.away, name: 'Michigan', score: 17, winner: true, linescores: [7, 3, 0, 7] },
   };
   assert.equal(postgameTitle(loss), '[Week 14 Postgame Thread] Michigan defeats Oklahoma, 17-10');
-  assert.doesNotMatch(postgameBody(loss), /Boomer/);
+  assert.deepEqual(parsePg(loss).headings, []); // no Boomer on a loss
 });
 
 test('overtime adds an OT column', () => {
@@ -127,20 +144,20 @@ test('overtime adds an OT column', () => {
     home: { ...lsu.home, score: 24, linescores: [7, 3, 0, 7, 7] },
     away: { ...lsu.away, score: 21, linescores: [0, 7, 7, 0, 7] },
   };
-  const body = postgameBody(ot);
-  assert.match(body, /\| \| 1 \| 2 \| 3 \| 4 \| OT \| Final \|/);
-  assert.match(body, /\| #8 Oklahoma \| 7 \| 3 \| 0 \| 7 \| 7 \| \*\*24\*\* \|/);
+  const pg = parsePg(ot);
+  assert.deepEqual(pg.header, ['', '1', '2', '3', '4', 'OT', 'Final']);
+  assert.deepEqual(pg.rows![1], ['#8 Oklahoma', '7', '3', '0', '7', '7', '24']);
 });
 
-test('postgame falls back to a final-score line without per-quarter data', () => {
+test('postgame falls back to a final-score paragraph without per-quarter data', () => {
   const noLines: Game = {
     ...lsu,
     home: { ...lsu.home, linescores: [] },
     away: { ...lsu.away, linescores: [] },
   };
-  const body = postgameBody(noLines);
-  assert.match(body, /\*\*Final:\*\* Oklahoma 17, LSU 14/);
-  assert.doesNotMatch(body, /\| Final \|/);
+  const pg = parsePg(noLines);
+  assert.equal(pg.header, null); // no table
+  assert.match(pg.paragraphs[0]!, /^Final: Oklahoma 17, LSU 14$/);
 });
 
 test('postseason label and italicized headline', () => {

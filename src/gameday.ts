@@ -6,7 +6,7 @@ import {
   gameThreadBody,
   gameThreadTitle,
   isCfbOuGameThread,
-  postgameBody,
+  postgameRichtext,
   postgameTitle,
 } from './format.ts';
 
@@ -142,6 +142,14 @@ export async function watchActiveGame(): Promise<void> {
   const sinceKickoff = Date.now() - Date.parse(game.kickoff);
   if (sinceKickoff < CHECK_FINAL_AFTER) return;
 
+  // Stop watching a game that ended long ago without a postgame thread (e.g. an old
+  // stuck state, or repeated failures), rather than posting a stale thread days later.
+  if (sinceKickoff > GIVE_UP_AFTER) {
+    console.warn(`Game ${eventId} is over ${GIVE_UP_AFTER / HOUR}h past kickoff with no postgame; giving up.`);
+    await redis.del('active');
+    return;
+  }
+
   const live = await fetchLiveGame(eventId);
   if (live.completed) {
     await postPostgameThread(eventId, {
@@ -149,8 +157,8 @@ export async function watchActiveGame(): Promise<void> {
       home: { ...game.home, score: live.home.score, winner: live.home.winner, linescores: live.home.linescores },
       away: { ...game.away, score: live.away.score, winner: live.away.winner, linescores: live.away.linescores },
     });
-  } else if (live.state === 'post' || sinceKickoff > GIVE_UP_AFTER) {
-    // Postponed, canceled, or ESPN never marked it final.
+  } else if (live.state === 'post') {
+    // Postponed or canceled.
     console.warn(`Game ${eventId} ended without a final score; skipping the postgame thread.`);
     await redis.del('active');
   }
@@ -176,7 +184,7 @@ async function postPostgameThread(eventId: string, game: Game): Promise<void> {
     post = await reddit.submitPost({
       subredditName: subredditName(),
       title: postgameTitle(game),
-      text: postgameBody(game),
+      richtext: postgameRichtext(game),
     });
   } catch (error) {
     await redis.hDel(gameKey(eventId), ['postgameClaimed']);
