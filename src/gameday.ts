@@ -18,6 +18,8 @@ const CHECK_FINAL_AFTER = 2.5 * HOUR;
 const GIVE_UP_AFTER = 12 * HOUR;
 /** How far before kickoff an r/CFB game thread can have been posted and still count. */
 const CFB_THREAD_WINDOW = 6 * HOUR;
+/** If a game already kicked off this long ago and still has no thread, don't bother posting one. */
+const MISSED_AFTER = 3 * HOUR;
 
 type T3 = `t3_${string}`;
 
@@ -51,17 +53,35 @@ function subredditName(): string {
 }
 
 /**
+ * Games worth acting on, earliest first: not finished, and not started so long ago that a
+ * thread would be pointless. A game whose kickoff moved earlier — even one already under way —
+ * stays eligible, so a last-minute time change still gets a thread. Exported for testing.
+ */
+export function eligibleGames(games: Game[], now: number): Game[] {
+  return games.filter((g) => !g.completed && !(g.timeValid && now - Date.parse(g.kickoff) > MISSED_AFTER));
+}
+
+/**
  * Finds OU's next game and makes sure its game thread is scheduled for an hour before kickoff.
- * Runs every few hours so kickoff time announcements and changes get picked up.
+ * Runs every 30 minutes so kickoff-time announcements and last-minute changes are picked up
+ * quickly; also posts immediately if a game moved earlier and is already within the hour or under way.
  */
 export async function syncSchedule(): Promise<string> {
   const now = Date.now();
-  const next = (await fetchSchedule()).find((g) => !g.completed && Date.parse(g.kickoff) > now);
+
+  // Pick the earliest eligible game we haven't already posted a thread for.
+  let next: Game | undefined;
+  let state: GameState = {};
+  for (const game of eligibleGames(await fetchSchedule(), now)) {
+    const s = await readState(game.id);
+    if (s.gameThreadId) continue;
+    next = game;
+    state = s;
+    break;
+  }
   if (!next) return 'No upcoming OU games found on ESPN.';
 
   const title = gameThreadTitle(next);
-  const state = await readState(next.id);
-  if (state.gameThreadId) return `Game thread for ${title} is already posted.`;
 
   if (!next.timeValid) {
     await cancelScheduledPost(next.id, state);

@@ -9,7 +9,7 @@
     "tasks": {
       "sync-schedule": {
         "endpoint": "/internal/scheduler/sync-schedule",
-        "cron": "15 */3 * * *"
+        "cron": "*/30 * * * *"
       },
       "watch-game": {
         "endpoint": "/internal/scheduler/watch-game",
